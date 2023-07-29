@@ -152,15 +152,28 @@ class Game:
                 self.cl_boundaries.append(game_object)
 
         # Extract all X and Y values of the boundaries
-        x_values = [boundary["position"][0] for boundary in self.cl_boundaries]
-        y_values = [boundary["position"][1] for boundary in self.cl_boundaries]
-        z_values = [boundary["position"][2] for boundary in self.cl_boundaries]
-        a_values = [boundary["position"][3] for boundary in self.cl_boundaries]
+        x_values = [boundary["position"][0] for boundary in self.cl_boundaries] #top left
+        y_values = [boundary["position"][1] for boundary in self.cl_boundaries] #bottom left 
+        z_values = [boundary["position"][2] for boundary in self.cl_boundaries] #bottom right
+        a_values = [boundary["position"][3] for boundary in self.cl_boundaries] #top right
 
         print(x_values, file=sys.stderr)
         print(y_values, file=sys.stderr)
         print(z_values, file=sys.stderr)
 
+       
+        
+        curr_coordinates = [tank_x, tank_y]
+    
+        if(abs(x_values[1] - tank_y) < 100):
+            curr_coordinates[1] -= 25
+        if(abs(y_values[0] - tank_x) < 100):
+            curr_coordinates[0] += 25
+        if(abs(z_values[1] - tank_y) < 100):
+            curr_coordinates[1] += 25
+        if(abs(a_values[0] - tank_x) < 100):
+            curr_coordinates[0] -= 25
+            
         
         # Find the x_value with the minimum difference from x1
         # min_difference_x = float('inf')
