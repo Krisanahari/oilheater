@@ -7,6 +7,7 @@ import random
 import comms
 from object_types import ObjectTypes
 from math import atan2, degrees, sqrt, pi
+import sys
 
 
 class Game:
@@ -108,7 +109,6 @@ class Game:
 
     # Helper function to calculate the angle between two points in degrees
     def angle_between_points(self, x1, y1, x2, y2):
-        # return 90 - (180 / 3.1415926535) * (3.1415926535 + 3.1415926535 - (3.1415926535 + atan2(y2 - y1, x2 - x1)))
         return atan2(y2- y1, x2-x1) * 180/ pi
 
     # Helper function to get the tank's state
@@ -141,27 +141,63 @@ class Game:
             return True
         return False
     
-    # def move_away_from_boundary(self):
-
-    #     tank_state = self.objects[self.tank_id]
-    #     tank_x, tank_y = tank_state["position"]
-
-    #     nearest_boundary_distance = float("inf")
-    #     nearest_boundary_position = None
-
-    #     # Find the nearest boundary
-    #     for obj_id, obj_state in self.objects.items():
-    #         if obj_state["type"] == ObjectTypes.BOUNDARY.value:
-    #             boundary_x, boundary_y = obj_state["position"]
-    #             distance_to_boundary = self.distance(tank_x, tank_y, boundary_x, boundary_y)
-    #             if distance_to_boundary < nearest_boundary_distance:
-    #                 nearest_boundary_distance = distance_to_boundary
-    #                 nearest_boundary_position = (boundary_x, boundary_y)
-
-    #     if nearest_boundary_position is not None:
-    #         return (-boundary_x, -boundary_y)
+    def get_closest_boundary(self, tank_x, tank_y):
+        # closest_boundary = None
+        # closest_distance = float("inf")
 
 
+        self.cl_boundaries = []
+        for game_object in self.objects.values():
+            if game_object["type"] == ObjectTypes.CLOSING_BOUNDARY.value:
+                self.cl_boundaries.append(game_object)
+
+        # Extract all X and Y values of the boundaries
+        x_values = [boundary["position"][0] for boundary in self.cl_boundaries]
+        y_values = [boundary["position"][1] for boundary in self.cl_boundaries]
+        z_values = [boundary["position"][2] for boundary in self.cl_boundaries]
+        a_values = [boundary["position"][3] for boundary in self.cl_boundaries]
+
+        print(x_values, file=sys.stderr)
+        print(y_values, file=sys.stderr)
+        print(z_values, file=sys.stderr)
+
+        
+        # Find the x_value with the minimum difference from x1
+        # min_difference_x = float('inf')
+        # closest_x = None
+
+        # for x_value in x_values:
+        #     difference_x = abs(x_value - tank_x)
+        #     if difference_x < min_difference_x:
+        #         min_difference_x = difference_x
+        #         closest_x = x_value
+
+        # # Find the y_value with the minimum difference from y1
+        # min_difference_y = float('inf')
+        # closest_y = None
+
+        # for y_value in y_values:
+        #     difference_y = abs(y_value - tank_y)
+        #     if difference_y < min_difference_y:
+        #         min_difference_y = difference_y
+        #         closest_y = y_value
+
+        # # Determine which value is closer, x or y, and find the corresponding coordinate
+        # if min_difference_x < min_difference_y:
+        #     index_x = x_values.index(closest_x)
+        #     corresponding_coordinate = (closest_x, y_values[index_x])
+        # else:
+        #     index_y = y_values.index(closest_y)
+        #     corresponding_coordinate = (x_values[index_y], closest_y)
+
+        return [100, 100]
+
+        # self.distances = [self.distance(self.objects[self.tank_id]["position"], corner) for corner in 
+        #                   self.cl_boundaries[0]["position"]]
+        
+
+            
+    
     # The bot's main decision-making function
     def respond_to_turn(self):
         # Get the tank's state
@@ -171,27 +207,10 @@ class Game:
 
         tank_x, tank_y, tank_hp, tank_powerups = tank_state
 
-        # bullets_to_avoid = []
-        # for obj_id, obj_state in self.objects.items():
-        #     if obj_state["type"] == ObjectTypes.BULLET.value:
-        #         bullet_x, bullet_y = obj_state["position"]
-        #         bullet_vx, bullet_vy = obj_state["velocity"]
-        #         bullet_distance = self.distance(bullet_x, bullet_y, tank_x, tank_y)
-        #         time_to_reach = bullet_distance / sqrt(bullet_vx ** 2 + bullet_vy ** 2)
-        #         if time_to_reach <= 1.5:  # Adjust this threshold based on the bullet speed
-        #             bullets_to_avoid.append((bullet_x, bullet_y))
-
         # Calculate the angle towards the center of the map
         center_x, center_y = self.width / 2, self.height / 2
         angle_to_center = self.angle_between_points(tank_x, tank_y, center_x, center_y)
 
-        # Check if there are bullets on the way to the center
-        # for bullet_x, bullet_y in bullets_to_avoid:
-        #     angle_to_bullet = self.angle_between_points(tank_x, tank_y, bullet_x, bullet_y)
-        #     angle_difference = abs(angle_to_bullet - angle_to_center)
-        #     if angle_difference < 90:  # Adjust this angle threshold based on your strategy
-        #         # If the bullet is on the way, calculate a new angle to avoid it
-        #         angle_to_center += 90 if angle_to_bullet > angle_to_center else -90
 
         # Get the opponent's state if available
         opponent_state = None
@@ -204,6 +223,7 @@ class Game:
         closest_powerup = self.get_closest_powerup(tank_x, tank_y)
         # bn = self.move_away_from_boundary()
 
+        closest_boundary = self.get_closest_boundary(tank_x, tank_y)
         # Decide the tank's action based on the situation
         tank_action = None
 
@@ -219,13 +239,20 @@ class Game:
             tank_action = {"path": [powerup_x, powerup_y]}
 
         # If there's nothing special, move randomly
-        elif self.last == None or self.last != [center_x, center_y]:
-            tank_action = {"path": [center_x, center_y]}
-            self.last = [center_x, center_y]
+        # elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
+        #     tank_action = {"path": [opponent_state[0], opponent_state[1]]}
+        #     self.last = [opponent_state[0], opponent_state[1]]
+
+        elif closest_boundary:
+            boundary_x = closest_boundary[0]
+            boundary_y = closest_boundary[1]
+
+            if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
+            # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
+                tank_action = {"path": [center_x, center_y]}
+
 
         # Send the tank's action to the game server
-
-
 
         comms.post_message(tank_action)
 
