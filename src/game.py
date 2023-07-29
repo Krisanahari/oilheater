@@ -165,13 +165,13 @@ class Game:
         
         curr_coordinates = [tank_x, tank_y]
     
-        if(abs(x_values[1] - tank_y) < 100):
+        if(abs(x_values[0][1] - tank_y) < 40):
             curr_coordinates[1] -= 25
-        if(abs(y_values[0] - tank_x) < 100):
+        if(abs(y_values[0][0] - tank_x) < 40):
             curr_coordinates[0] += 25
-        if(abs(z_values[1] - tank_y) < 100):
+        if(abs(z_values[0][1] - tank_y) < 40):
             curr_coordinates[1] += 25
-        if(abs(a_values[0] - tank_x) < 100):
+        if(abs(a_values[0][0] - tank_x) < 40):
             curr_coordinates[0] -= 25
             
         
@@ -203,7 +203,7 @@ class Game:
         #     index_y = y_values.index(closest_y)
         #     corresponding_coordinate = (x_values[index_y], closest_y)
 
-        return [100, 100]
+        return curr_coordinates
 
         # self.distances = [self.distance(self.objects[self.tank_id]["position"], corner) for corner in 
         #                   self.cl_boundaries[0]["position"]]
@@ -245,6 +245,14 @@ class Game:
             angle_to_opponent = self.angle_between_points(tank_x, tank_y, opponent_state[0], opponent_state[1])
             tank_action = {"shoot": angle_to_opponent}
 
+        # elif closest_boundary:
+        #     boundary_x = closest_boundary[0]
+        #     boundary_y = closest_boundary[1]
+
+        #     # if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
+        #     # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
+        #     tank_action = {"path": [boundary_x, boundary_y]}
+
         # If no opponent nearby, move towards the closest powerup
         elif closest_powerup:
             powerup_x, powerup_y = closest_powerup["position"]
@@ -252,17 +260,11 @@ class Game:
             tank_action = {"path": [powerup_x, powerup_y]}
 
         # If there's nothing special, move randomly
-        # elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
-        #     tank_action = {"path": [opponent_state[0], opponent_state[1]]}
-        #     self.last = [opponent_state[0], opponent_state[1]]
+        elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
+            tank_action = {"path": [opponent_state[0], opponent_state[1]]}
+            self.last = [opponent_state[0], opponent_state[1]]
 
-        elif closest_boundary:
-            boundary_x = closest_boundary[0]
-            boundary_y = closest_boundary[1]
 
-            if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
-            # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
-                tank_action = {"path": [center_x, center_y]}
 
 
         # Send the tank's action to the game server
