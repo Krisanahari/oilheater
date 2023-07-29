@@ -147,9 +147,12 @@ class Game:
 
 
         self.cl_boundaries = []
+        self.walls_positions = []
         for game_object in self.objects.values():
             if game_object["type"] == ObjectTypes.CLOSING_BOUNDARY.value:
                 self.cl_boundaries.append(game_object)
+            if game_object["type"] == ObjectTypes.WALL.value:
+                self.walls_positions.append(game_object["position"])
 
         # Extract all X and Y values of the boundaries
         x_values = [boundary["position"][0] for boundary in self.cl_boundaries] #top left
@@ -165,50 +168,51 @@ class Game:
         
         curr_coordinates = [tank_x, tank_y]
     
-        if(abs(x_values[0][1] - tank_y) < 40):
-            curr_coordinates[1] -= 25
-        if(abs(y_values[0][0] - tank_x) < 40):
-            curr_coordinates[0] += 25
-        if(abs(z_values[0][1] - tank_y) < 40):
-            curr_coordinates[1] += 25
-        if(abs(a_values[0][0] - tank_x) < 40):
-            curr_coordinates[0] -= 25
-            
         
-        # Find the x_value with the minimum difference from x1
-        # min_difference_x = float('inf')
-        # closest_x = None
+        if(abs(x_values[0][1] - tank_y) < 50):
+            curr_coordinates[1] -= 30 if abs(z_values[0][1] - tank_y) > 30 else abs(z_values[0][1] - tank_y)+5
+            still = True
+            while still:
+                still = False
+                for wall_position in self.walls_positions:
+                    if(wall_position[1]+11 >= curr_coordinates[1] and curr_coordinates[1]>= wall_position[1]-11):
+                        curr_coordinates[1] -= 30 if abs(z_values[0][1] - tank_y) > 30 else abs(z_values[0][1] - tank_y)+5
+                        still = True
 
-        # for x_value in x_values:
-        #     difference_x = abs(x_value - tank_x)
-        #     if difference_x < min_difference_x:
-        #         min_difference_x = difference_x
-        #         closest_x = x_value
+        if(abs(y_values[0][0] - tank_x) < 50):
+            curr_coordinates[0] += 30 if abs(a_values[0][0] - tank_x) > 30 else abs(a_values[0][0] - tank_x)-5
+            still = True
+            while still:
+                still = False
+                for wall_position in self.walls_positions:
+                    if(wall_position[0]+11 >= curr_coordinates[0] and curr_coordinates[0] >= wall_position[0]-11):
+                        curr_coordinates[0] += 30 if abs(a_values[0][0] - tank_x) > 30 else abs(a_values[0][0] - tank_x)-5
+                        still = True
 
-        # # Find the y_value with the minimum difference from y1
-        # min_difference_y = float('inf')
-        # closest_y = None
+        if(abs(z_values[0][1] - tank_y) < 50):
+            curr_coordinates[1] += 30 if abs(x_values[0][1] - tank_y) > 30 else abs(x_values[0][1] - tank_y)-5
+            still = True
+            while still:
+                still = False
+                for wall_position in self.walls_positions:
+                    if(wall_position[1]+11 >= curr_coordinates[1] and curr_coordinates[1]>= wall_position[1]-11):
+                        curr_coordinates[1] += 30 if abs(x_values[0][1] - tank_y) > 30 else abs(x_values[0][1] - tank_y)-5
+                        still = True
 
-        # for y_value in y_values:
-        #     difference_y = abs(y_value - tank_y)
-        #     if difference_y < min_difference_y:
-        #         min_difference_y = difference_y
-        #         closest_y = y_value
+        if(abs(a_values[0][0] - tank_x) < 50):
+            curr_coordinates[0] -= 30 if abs(y_values[0][0] - tank_x) > 30 else abs(y_values[0][0] - tank_x)+5
+            still = True
+            while still:
+                still = False
+                for wall_position in self.walls_positions:
+                    if(wall_position[0]+11 >= curr_coordinates[0] and curr_coordinates[0] >= wall_position[0]-11):
+                        curr_coordinates[0] -= 30 if abs(y_values[0][0] - tank_x) > 30 else abs(y_values[0][0] - tank_x)+5
+                        still = True
 
-        # # Determine which value is closer, x or y, and find the corresponding coordinate
-        # if min_difference_x < min_difference_y:
-        #     index_x = x_values.index(closest_x)
-        #     corresponding_coordinate = (closest_x, y_values[index_x])
-        # else:
-        #     index_y = y_values.index(closest_y)
-        #     corresponding_coordinate = (x_values[index_y], closest_y)
 
         return curr_coordinates
 
-        # self.distances = [self.distance(self.objects[self.tank_id]["position"], corner) for corner in 
-        #                   self.cl_boundaries[0]["position"]]
-        
-
+    
             
     
     # The bot's main decision-making function
@@ -245,13 +249,13 @@ class Game:
             angle_to_opponent = self.angle_between_points(tank_x, tank_y, opponent_state[0], opponent_state[1])
             tank_action = {"shoot": angle_to_opponent}
 
-        # elif closest_boundary:
-        #     boundary_x = closest_boundary[0]
-        #     boundary_y = closest_boundary[1]
+        elif closest_boundary:
+            boundary_x = closest_boundary[0]
+            boundary_y = closest_boundary[1]
 
-        #     # if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
-        #     # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
-        #     tank_action = {"path": [boundary_x, boundary_y]}
+            # if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
+            # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
+            tank_action = {"path": [boundary_x, boundary_y]}
 
         # If no opponent nearby, move towards the closest powerup
         elif closest_powerup:
@@ -259,10 +263,10 @@ class Game:
             angle_to_powerup = self.angle_between_points(tank_x, tank_y, powerup_x, powerup_y)
             tank_action = {"path": [powerup_x, powerup_y]}
 
-        # If there's nothing special, move randomly
-        elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
-            tank_action = {"path": [opponent_state[0], opponent_state[1]]}
-            self.last = [opponent_state[0], opponent_state[1]]
+        # # If there's nothing special, move randomly
+        # elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
+        #     tank_action = {"path": [opponent_state[0], opponent_state[1]]}
+        #     self.last = [opponent_state[0], opponent_state[1]]
 
 
 
