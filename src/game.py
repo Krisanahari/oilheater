@@ -137,7 +137,7 @@ class Game:
     # Helper function to check if a tank can shoot at a target
     def can_shoot_target(self, tank_x, tank_y, target_x, target_y):
         target_distance = self.distance(tank_x, tank_y, target_x, target_y)
-        if target_distance <= 200:  # Adjust this threshold based on the tank's shooting range
+        if target_distance <= 300:  # Adjust this threshold based on the tank's shooting range
             return True
         return False
     
@@ -156,60 +156,48 @@ class Game:
         y_values = [boundary["position"][1] for boundary in self.cl_boundaries] #bottom left 
         z_values = [boundary["position"][2] for boundary in self.cl_boundaries] #bottom right
         a_values = [boundary["position"][3] for boundary in self.cl_boundaries] #top right
-
-        print(x_values, file=sys.stderr)
-        print(y_values, file=sys.stderr)
-        print(z_values, file=sys.stderr)
-
-       
         
         curr_coordinates = [tank_x, tank_y]
     
-        if(abs(x_values[0][1] - tank_y) < 40):
+        if(abs(x_values[0][1] - tank_y) < 100):
             curr_coordinates[1] -= 25
-        if(abs(y_values[0][0] - tank_x) < 40):
+            return curr_coordinates, True
+        if(abs(y_values[0][0] - tank_x) < 100):
             curr_coordinates[0] += 25
-        if(abs(z_values[0][1] - tank_y) < 40):
+            return curr_coordinates, True
+        if(abs(z_values[0][1] - tank_y) < 100):
             curr_coordinates[1] += 25
-        if(abs(a_values[0][0] - tank_x) < 40):
+            return curr_coordinates, True
+        if(abs(a_values[0][0] - tank_x) < 100):
             curr_coordinates[0] -= 25
-            
-        
-        # Find the x_value with the minimum difference from x1
-        # min_difference_x = float('inf')
-        # closest_x = None
+            return curr_coordinates, True
+        return curr_coordinates, False        
+    
+    # Helper function to get the closest destructible wall in the positive x direction
+    def get_closest_destructible_wall_in_pos_x(self, tank_x, tank_y):
+        closest_wall_pos_x = None
+        closest_wall_neg_x = None
+        closest_distance_pos_x = float("inf")
+        closest_distance_neg_x = float("inf")
 
-        # for x_value in x_values:
-        #     difference_x = abs(x_value - tank_x)
-        #     if difference_x < min_difference_x:
-        #         min_difference_x = difference_x
-        #         closest_x = x_value
+        for game_object in self.objects.values():
+            if game_object["type"] == ObjectTypes.DESTRUCTIBLE_WALL.value:
+                wall_x, wall_y = game_object["position"]
+                wall_distance = self.distance(tank_x, tank_y, wall_x, wall_y)
 
-        # # Find the y_value with the minimum difference from y1
-        # min_difference_y = float('inf')
-        # closest_y = None
+                # Check in the positive x direction
+                if wall_x > tank_x and wall_distance < closest_distance_pos_x:
+                    closest_wall_pos_x = game_object
+                    closest_distance_pos_x = wall_distance
 
-        # for y_value in y_values:
-        #     difference_y = abs(y_value - tank_y)
-        #     if difference_y < min_difference_y:
-        #         min_difference_y = difference_y
-        #         closest_y = y_value
+                # Check in the negative x direction
+                if wall_x < tank_x and wall_distance < closest_distance_neg_x:
+                    closest_wall_neg_x = game_object
+                    closest_distance_neg_x = wall_distance
 
-        # # Determine which value is closer, x or y, and find the corresponding coordinate
-        # if min_difference_x < min_difference_y:
-        #     index_x = x_values.index(closest_x)
-        #     corresponding_coordinate = (closest_x, y_values[index_x])
-        # else:
-        #     index_y = y_values.index(closest_y)
-        #     corresponding_coordinate = (x_values[index_y], closest_y)
-
-        return curr_coordinates
-
-        # self.distances = [self.distance(self.objects[self.tank_id]["position"], corner) for corner in 
-        #                   self.cl_boundaries[0]["position"]]
-        
-
-            
+        if closest_distance_neg_x == closest_distance_pos_x:
+            return True
+        return False
     
     # The bot's main decision-making function
     def respond_to_turn(self):
@@ -234,34 +222,38 @@ class Game:
 
         # Get the closest powerup if available
         closest_powerup = self.get_closest_powerup(tank_x, tank_y)
-        # bn = self.move_away_from_boundary()
 
-        closest_boundary = self.get_closest_boundary(tank_x, tank_y)
+        wall = self.get_closest_destructible_wall_in_pos_x(tank_x, tank_y)
+
+        closest_boundary, condition = self.get_closest_boundary(tank_x, tank_y)
         # Decide the tank's action based on the situation
-        tank_action = None
+        tank_action = {}
+
+        if wall == True:
+            tank_action = {"shoot": 90}
 
         # If an opponent is nearby, try to shoot at them
         if opponent_state and self.can_shoot_target(tank_x, tank_y, opponent_state[0], opponent_state[1]):
             angle_to_opponent = self.angle_between_points(tank_x, tank_y, opponent_state[0], opponent_state[1])
-            tank_action = {"shoot": angle_to_opponent}
+            tank_action["shoot"] = angle_to_opponent
 
-        # elif closest_boundary:
-        #     boundary_x = closest_boundary[0]
-        #     boundary_y = closest_boundary[1]
+        if closest_boundary and condition == True:
+            boundary_x = closest_boundary[0]
+            boundary_y = closest_boundary[1]
 
-        #     # if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
-        #     # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
-        #     tank_action = {"path": [boundary_x, boundary_y]}
+            # if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
+            # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
+            tank_action ["path"] = boundary_x, boundary_y
 
         # If no opponent nearby, move towards the closest powerup
         elif closest_powerup:
             powerup_x, powerup_y = closest_powerup["position"]
             angle_to_powerup = self.angle_between_points(tank_x, tank_y, powerup_x, powerup_y)
-            tank_action = {"path": [powerup_x, powerup_y]}
+            tank_action ["path"] = powerup_x, powerup_y
 
         # If there's nothing special, move randomly
         elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
-            tank_action = {"path": [opponent_state[0], opponent_state[1]]}
+            tank_action ["path"] = [opponent_state[0], opponent_state[1]]
             self.last = [opponent_state[0], opponent_state[1]]
 
 
