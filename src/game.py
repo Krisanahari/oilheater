@@ -6,7 +6,7 @@ from object_types import ObjectTypes
 import random
 import comms
 from object_types import ObjectTypes
-from math import atan2, degrees, sqrt, pi
+from math import atan2, degrees, sqrt, pi, cos, sin
 import sys
 
 
@@ -26,6 +26,7 @@ class Game:
         self.last = None
         tank_id_message: dict = comms.read_message()
         self.tank_id = tank_id_message["message"]["your-tank-id"]
+        self.enemy_id = tank_id_message["message"]["enemy-tank-id"]
 
         self.current_turn_message = None
 
@@ -137,7 +138,7 @@ class Game:
     # Helper function to check if a tank can shoot at a target
     def can_shoot_target(self, tank_x, tank_y, target_x, target_y):
         target_distance = self.distance(tank_x, tank_y, target_x, target_y)
-        if target_distance <= 200:  # Adjust this threshold based on the tank's shooting range
+        if target_distance <= 700:  # Adjust this threshold based on the tank's shooting range
             return True
         return False
     
@@ -160,19 +161,18 @@ class Game:
         print(x_values, file=sys.stderr)
         print(y_values, file=sys.stderr)
         print(z_values, file=sys.stderr)
-
-       
         
         curr_coordinates = [tank_x, tank_y]
     
-        if(abs(x_values[0][1] - tank_y) < 40):
-            curr_coordinates[1] -= 25
-        if(abs(y_values[0][0] - tank_x) < 40):
-            curr_coordinates[0] += 25
-        if(abs(z_values[0][1] - tank_y) < 40):
-            curr_coordinates[1] += 25
-        if(abs(a_values[0][0] - tank_x) < 40):
-            curr_coordinates[0] -= 25
+        if(abs(x_values[0][1] - tank_y) < 100):
+            curr_coordinates[1] -= 50
+        if(abs(y_values[0][0] - tank_x) < 100):
+            curr_coordinates[0] += 50
+        if(abs(z_values[0][1] - tank_y) < 100):
+            curr_coordinates[1] += 50
+        if(abs(a_values[0][0] - tank_x) < 100):
+            curr_coordinates[0] -= 50
+        
             
         
         # Find the x_value with the minimum difference from x1
@@ -236,14 +236,12 @@ class Game:
         closest_powerup = self.get_closest_powerup(tank_x, tank_y)
         # bn = self.move_away_from_boundary()
 
+        desired_distance = 700
+        target_x, target_y = tank_x, tank_y
+
         closest_boundary = self.get_closest_boundary(tank_x, tank_y)
         # Decide the tank's action based on the situation
-        tank_action = None
-
-        # If an opponent is nearby, try to shoot at them
-        if opponent_state and self.can_shoot_target(tank_x, tank_y, opponent_state[0], opponent_state[1]):
-            angle_to_opponent = self.angle_between_points(tank_x, tank_y, opponent_state[0], opponent_state[1])
-            tank_action = {"shoot": angle_to_opponent}
+        tank_action = {}
 
         # elif closest_boundary:
         #     boundary_x = closest_boundary[0]
@@ -251,18 +249,41 @@ class Game:
 
         #     # if (boundary_x - tank_x < 100) or (boundary_y - tank_y < 100):
         #     # angle_away_from_boundary = self.angle_between_points(tank_x, tank_y, boundary_x, boundary_y) + 180
-        #     tank_action = {"path": [boundary_x, boundary_y]}
+        #     tank_action["path"] = [boundary_x, boundary_y]
+        
+        if self.can_shoot_target(tank_x, tank_y, self.objects[self.enemy_id]["position"][0], self.objects[self.enemy_id]["position"][1]):
+            # Calculate the angle towards the enemy tank
+            angle_to_enemy = self.angle_between_points(tank_x, tank_y, self.objects[self.enemy_id]["position"][0], self.objects[self.enemy_id]["position"][1])
 
-        # If no opponent nearby, move towards the closest powerup
-        elif closest_powerup:
-            powerup_x, powerup_y = closest_powerup["position"]
-            angle_to_powerup = self.angle_between_points(tank_x, tank_y, powerup_x, powerup_y)
-            tank_action = {"path": [powerup_x, powerup_y]}
+            # Calculate the angle away from the enemy tank (180 degrees opposite direction)
+            angle_away_from_enemy = (angle_to_enemy + 180) % 360
 
-        # If there's nothing special, move randomly
-        elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
-            tank_action = {"path": [opponent_state[0], opponent_state[1]]}
-            self.last = [opponent_state[0], opponent_state[1]]
+            # Calculate the target position to maintain desired_distance from the enemy tank
+            target_x = tank_x + desired_distance * cos(angle_away_from_enemy * pi / 180)
+            target_y = tank_y + desired_distance * sin(angle_away_from_enemy * pi / 180)
+
+            # Check if the target position is within the map boundaries
+            target_x = max(min(target_x, closest_boundary[0] + 50), 0)
+            target_y = max(min(target_y, closest_boundary[1] + 50), 0)
+
+            # Move the player tank towards the target position
+            tank_action["path"] = [target_x, target_y]
+        
+        # If an opponent is nearby, try to shoot at them
+        if opponent_state and self.can_shoot_target(tank_x, tank_y, opponent_state[0], opponent_state[1]):
+            angle_to_opponent = self.angle_between_points(tank_x, tank_y, opponent_state[0], opponent_state[1])
+            tank_action["shoot"] = angle_to_opponent
+
+        # # If no opponent nearby, move towards the closest powerup
+        # elif closest_powerup:
+        #     powerup_x, powerup_y = closest_powerup["position"]
+        #     angle_to_powerup = self.angle_between_points(tank_x, tank_y, powerup_x, powerup_y)
+        #     tank_action = {"path": [powerup_x, powerup_y]}
+
+        # # If there's nothing special, move randomly
+        # elif self.last == None or self.last != [opponent_state[0], opponent_state[1]]:
+        #     tank_action = {"path": [opponent_state[0], opponent_state[1]]}
+        #     self.last = [opponent_state[0], opponent_state[1]]
 
 
 
