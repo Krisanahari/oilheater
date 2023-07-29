@@ -26,6 +26,7 @@ class Game:
         self.last = None
         tank_id_message: dict = comms.read_message()
         self.tank_id = tank_id_message["message"]["your-tank-id"]
+        self.enemy_id = tank_id_message["message"]["enemy-tank-id"]
 
         self.current_turn_message = None
 
@@ -199,6 +200,91 @@ class Game:
             return True
         return False
     
+        # Helper function to get the closest incoming bullet to the tank's position
+    # def get_closest_incoming_bullet(self, tank_x, tank_y):
+    #     closest_bullet = None
+    #     closest_distance = float("inf")
+
+    #     for game_object in self.objects.values():
+    #         if game_object["type"] == ObjectTypes.BULLET.value:
+    #             bullet_x, bullet_y = game_object["position"]
+    #             bullet_velocity_x, bullet_velocity_y = game_object["velocity"]
+
+    #             # Calculate the distance of the bullet's projected path from the tank's position
+    #             bullet_distance = self.distance(tank_x, tank_y, bullet_x + bullet_velocity_x, bullet_y + bullet_velocity_y)
+
+    #             if bullet_distance < closest_distance:
+    #                 closest_bullet = game_object
+    #                 closest_distance = bullet_distance
+
+    #     return closest_bullet
+
+        # Helper function to get the closest incoming bullet to the tank's position
+    def get_closest_incoming_bullet(self, tank_x, tank_y):
+        closest_bullet = None
+        closest_distance = float("inf")
+
+        for game_object in self.objects.values():
+            if game_object["type"] == ObjectTypes.BULLET.value and game_object["tank_id"] == self.enemy_id:
+                bullet_x, bullet_y = game_object["position"]
+                bullet_velocity_x, bullet_velocity_y = game_object["velocity"]
+
+                # Calculate the distance of the bullet's projected path from the tank's position
+                bullet_distance = self.distance(tank_x, tank_y, bullet_x + bullet_velocity_x, bullet_y + bullet_velocity_y)
+
+                # Perform LOS check to see if any walls intersect the line segment between tank and predicted bullet position
+                los_clear = True
+                for wall_obj in self.objects.values():
+                    if wall_obj["type"] in [ObjectTypes.WALL.value, ObjectTypes.DESTRUCTIBLE_WALL.value]:
+                        wall_x, wall_y = wall_obj["position"]
+                        if self.intersects_wall(tank_x, tank_y, bullet_x + bullet_velocity_x, bullet_y + bullet_velocity_y, wall_x, wall_y):
+                            los_clear = False
+                            return closest_bullet, los_clear
+                            break
+
+                if bullet_distance < closest_distance and los_clear:
+                    closest_bullet = game_object
+                    closest_distance = bullet_distance
+
+        return closest_bullet, True
+
+    # Helper function to check if the line segment between two points intersects a wall
+    def intersects_wall(self, x1, y1, x2, y2, wall_x, wall_y):
+        # Calculate the distance from the wall to the line using the cross product
+        return abs((x2 - x1) * (wall_y - y1) - (y2 - y1) * (wall_x - x1)) < 9  # Wall thickness is 18, use 9 as a buffer
+
+    # def is_path_clear(self, start_x, start_y, target_x, target_y):
+    #     # Bresenham's line algorithm to check for obstructions in the line of sight
+    #     dx = abs(target_x - start_x)
+    #     dy = abs(target_y - start_y)
+    #     sx = -1 if start_x > target_x else 1
+    #     sy = -1 if start_y > target_y else 1
+    #     err = dx - dy
+
+    #     while start_x != target_x or start_y != target_y:
+    #         if start_x != target_x and start_y != target_y:
+    #             if self.is_obstacle_at(start_x, start_y):
+    #                 return False
+    #         e2 = 2 * err
+    #         if e2 > -dy:
+    #             err -= dy
+    #             start_x += sx
+    #         if e2 < dx:
+    #             err += dx
+    #             start_y += sy
+
+    #     return True
+
+    # def is_obstacle_at(self, x, y):
+    #     # Implement a function to check if there's an obstacle (wall) at the given coordinates (x, y)
+    #     # You can use the wall positions to check for obstacles
+    #     for game_object in self.objects.values():
+    #         if game_object["type"] in [ObjectTypes.WALL.value, ObjectTypes.DESTRUCTIBLE_WALL.value]:
+    #             wall_x, wall_y = game_object["position"]
+    #             if wall_x == x and wall_y == y:
+    #                 return True
+    #     return False
+        
     # The bot's main decision-making function
     def respond_to_turn(self):
         # Get the tank's state
@@ -224,11 +310,19 @@ class Game:
         closest_powerup = self.get_closest_powerup(tank_x, tank_y)
 
         wall = self.get_closest_destructible_wall_in_pos_x(tank_x, tank_y)
-
+        bullet, wall_condition = self.get_closest_incoming_bullet(tank_x, tank_y)
+        # bullet = self.is_path_clear(tank_x, tank_y, opponent_state[0], opponent_state[1])
         closest_boundary, condition = self.get_closest_boundary(tank_x, tank_y)
         # Decide the tank's action based on the situation
         tank_action = {}
 
+
+                    # If there's an incoming bullet, shoot back at it
+        if bullet and wall_condition == True:
+                bullet_x, bullet_y = bullet["position"]
+                angle_to_bullet = self.angle_between_points(tank_x, tank_y, bullet_x, bullet_y)
+                tank_action["shoot"] = angle_to_bullet
+        
         if wall == True:
             tank_action = {"shoot": 90}
 
