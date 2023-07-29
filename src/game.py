@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import sys
 
 import comms
 from object_types import ObjectTypes
@@ -19,6 +20,7 @@ class Game:
     def __init__(self):
         tank_id_message: dict = comms.read_message()
         self.tank_id = tank_id_message["message"]["your-tank-id"]
+        self.enemy_tank_id = tank_id_message["message"]["enemy-tank-id"]
 
         self.current_turn_message = None
 
@@ -90,38 +92,36 @@ class Game:
         """
 
         # Write your code here... For demonstration, this bot just shoots randomly every turn.
-        self.movement()
         # comms.post_message({
         #     "shoot": random.uniform(0, random.randint(1, 360))
         # })
+        self.movement()
     
     def movement(self):
         """
         Default zone avoidance
         """
-        
+
         self.middle = [self.width/2, self.height/2]
 
-        # Closing boundary
-        self.closing_bound_arr = self.get_closing_boundaries()
+        print(self.objects[self.tank_id]["position"], file=sys.stderr)
 
-        # # Tanks
-        # self.tank_arr = []
-        # for game_object in self.objects.values():
-        #     if game_object["type"] == ObjectTypes.TANK.value:
-        #         self.tank_arr.append(game_object)
+        self.closing_boundaries = self.get_gameObject_by_type(ObjectTypes.CLOSING_BOUNDARY.value)
 
-        curr_pos = self.objects["updated_objects"][self.tank_id]["position"]
-        if ((curr_pos[1] - self.closing_bound_arr[1][1]) < 5.0):
-            # Move player up
+        print(self.closing_boundaries, file=sys.stderr)
+
+        if ((self.closing_boundaries[0]["position"][3][1] - self.objects[self.tank_id]["position"][1]) < 100.0):
             comms.post_message({
-                "path": [curr_pos[0], curr_pos[1] + 5.0]
+                "path": [self.objects[self.tank_id]["position"][0], self.objects[self.tank_id]["position"][1] - 100.0]
+            })
+        if ((self.objects[self.tank_id]["position"][1]) - self.closing_boundaries[0]["position"][1][1] < 100.0):
+            comms.post_message({
+                "path": [self.objects[self.tank_id]["position"][0], self.objects[self.tank_id]["position"][1] + 100.0]
             })
 
-
-    def get_closing_boundaries(self):
-        closing_bound_arr = []
+    def get_gameObject_by_type(self, type):
+        gObject = []
         for game_object in self.objects.values():
-            if game_object["type"] == ObjectTypes.CLOSING_BOUNDARY.value:
-                closing_bound_arr.append(game_object["position"])
-        return closing_bound_arr
+            if game_object["type"] == type:
+                gObject.append(game_object)
+        return gObject
